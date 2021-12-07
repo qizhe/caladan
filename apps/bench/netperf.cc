@@ -6,6 +6,7 @@ extern "C" {
 
 #include <chrono>
 #include <iostream>
+#include <fstream>
 #include <memory>
 #include <vector>
 
@@ -13,6 +14,8 @@ extern "C" {
 #include "runtime.h"
 #include "sync.h"
 #include "thread.h"
+
+using us = std::chrono::duration<double, std::micro>;
 
 namespace {
 
@@ -93,22 +96,45 @@ void RunServer() {
   }
 }
 
-void ClientWorker(std::unique_ptr<rt::TcpConn> c, int samples, size_t buflen,
+void ClientWorker(std::unique_ptr<rt::TcpConn> c, int timelen, int id, size_t buflen,
                   bool rr) {
   std::unique_ptr<char[]> buf(new char[buflen]);
-  while (samples--) {
+  auto start = steady_clock::now();
+	auto start_exp = start;
+	auto end = start;
+	uint64_t sent_bytes = 0;
+	std::ofstream lfile, tfile;
+	std::vector<double> latency;
+
+	lfile.open("temp/netperf-" + std::to_string(id)+".log");
+	tfile.open("temp/netperf-" + std::to_string(id)+"_thpt.log");
+  while (1) {
+    start = steady_clock::now();
     ssize_t ret = c->WriteFull(buf.get(), buflen);
     if (ret != static_cast<ssize_t>(buflen))
       panic("write failed, ret = %ld", ret);
     if (rr) {
+      sent_bytes += ret;
       ret = c->ReadFull(buf.get(), buflen);
       if (ret != static_cast<ssize_t>(buflen))
         panic("read failed, ret = %ld", ret);
     }
+    end = steady_clock::now();
+    latency.push_back(std::chrono::duration_cast<us>(end - start).count());
+    if(std::chrono::duration_cast<sec>(end - start_exp).count() > timelen) {
+      break;
+    }
   }
+  tfile <<   sent_bytes * 8 / timelen  << std::endl;
+  for(uint32_t i = 0; i < latency.size(); i++) {
+    lfile << "finish time: " << latency[i] << "\n"; 
+    // std::cout << "finish time: " << latency[i] << "\n"; 
+  }
+  tfile.close();
+  lfile.close();
 }
 
-void RunClient(netaddr raddr, int threads, int samples, size_t buflen,
+void RunClient(netaddr raddr, int threads, int timelen, size_t buflen,
                bool rr) {
   // setup experiment
   server_init_msg msg = {kNetperfMagic, rr ? kTCPRR : kTCPStream, buflen};
@@ -131,8 +157,8 @@ void RunClient(netaddr raddr, int threads, int samples, size_t buflen,
   // run the experiment
   std::vector<rt::Thread> ths;
   for (int i = 0; i < threads; ++i) {
-    ths.emplace_back(rt::Thread([&conns, i, samples, buflen, rr] {
-      ClientWorker(std::move(conns[i]), samples, buflen, rr);
+    ths.emplace_back(rt::Thread([&conns, i, timelen, buflen, rr] {
+      ClientWorker(std::move(conns[i]), timelen, i, buflen, rr);
     }));
   }
   for (auto &t : ths) t.Join();
@@ -143,10 +169,10 @@ void RunClient(netaddr raddr, int threads, int samples, size_t buflen,
   barrier();
 
   // report results
-  double seconds = duration_cast<sec>(finish - start).count();
-  size_t mbytes = buflen * samples * threads / 1000 / 1000;
-  double mbytes_per_second = static_cast<double>(mbytes) / seconds;
-  std::cout << "transferred " << mbytes_per_second << " MB/s" << std::endl;
+  // double seconds = duration_cast<sec>(finish - start).count();
+  // size_t mbytes = buflen * samples * threads / 1000 / 1000;
+  // double mbytes_per_second = static_cast<double>(mbytes) / seconds;
+  // std::cout << "transferred " << mbytes_per_second << " MB/s" << std::endl;
 }
 
 int StringToAddr(const char *str, uint32_t *addr) {
