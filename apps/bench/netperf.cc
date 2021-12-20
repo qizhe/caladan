@@ -200,7 +200,7 @@ int main(int argc, char *argv[]) {
   int port = 8080;
   size_t buflen = 0;
   if (cmd.compare("tcpstream") == 0 || cmd.compare("tcprr") == 0) {
-    if (argc != 7) {
+    if (argc != 8) {
       std::cerr << "usage: [cfg_file] " << cmd << " [ip_addr] [threads] "
                 << "[samples] [buflen]" << std::endl;
       return -EINVAL;
