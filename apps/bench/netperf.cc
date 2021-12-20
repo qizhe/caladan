@@ -135,7 +135,7 @@ void ClientWorker(std::unique_ptr<rt::TcpConn> c, int timelen, int id, size_t bu
 }
 
 void RunClient(netaddr raddr, int threads, int timelen, size_t buflen,
-               bool rr) {
+               bool rr, int log_style) {
   // setup experiment
   server_init_msg msg = {kNetperfMagic, rr ? kTCPRR : kTCPStream, buflen};
   std::vector<std::unique_ptr<rt::TcpConn>> conns;
@@ -157,9 +157,12 @@ void RunClient(netaddr raddr, int threads, int timelen, size_t buflen,
   // run the experiment
   std::vector<rt::Thread> ths;
   for (int i = 0; i < threads; ++i) {
-    ths.emplace_back(rt::Thread([&conns, i, timelen, buflen, rr] {
-      ClientWorker(std::move(conns[i]), timelen, i, buflen, rr);
-    }));
+    	int thread_id = 0;
+	if(log_style  == 1)
+		thread_id = raddr.port - 8080;
+	  ths.emplace_back(rt::Thread([&conns, i, timelen, buflen, rr, thread_id] {
+      	ClientWorker(std::move(conns[i]), timelen, thread_id, buflen, rr);
+    	}));
   }
   for (auto &t : ths) t.Join();
 
@@ -199,8 +202,10 @@ int main(int argc, char *argv[]) {
   int threads = 0, samples = 0;
   int port = 8080;
   size_t buflen = 0;
+  /* 0: use thread id; 1: use port_id - 8080 */
+  int log_style = 0;
   if (cmd.compare("tcpstream") == 0 || cmd.compare("tcprr") == 0) {
-    if (argc != 8) {
+    if (argc != 9) {
       std::cerr << "usage: [cfg_file] " << cmd << " [ip_addr] [threads] "
                 << "[samples] [buflen]" << std::endl;
       return -EINVAL;
@@ -212,6 +217,7 @@ int main(int argc, char *argv[]) {
     samples = std::stoi(argv[5], nullptr, 0);
     buflen = std::stoul(argv[6], nullptr, 0);
     raddr.port = std::stoi(argv[7], nullptr, 0);
+    log_style = std::stoi(argv[8], nullptr, 0);
   } else if (cmd.compare("server") != 0) {
     std::cerr << "invalid command: " << cmd << std::endl;
     port = std::stoi(argv[4], nullptr, 0);
@@ -222,9 +228,9 @@ int main(int argc, char *argv[]) {
     if (cmd.compare("server") == 0) {
       RunServer(port);
     } else if (cmd.compare("tcpstream") == 0) {
-      RunClient(raddr, threads, samples, buflen, false);
+      RunClient(raddr, threads, samples, buflen, false, log_style);
     } else if (cmd.compare("tcprr") == 0) {
-      RunClient(raddr, threads, samples, buflen, true);
+      RunClient(raddr, threads, samples, buflen, true, log_style);
     }
   });
 }
