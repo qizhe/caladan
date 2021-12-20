@@ -157,7 +157,7 @@ void RunClient(netaddr raddr, int threads, int timelen, size_t buflen,
   // run the experiment
   std::vector<rt::Thread> ths;
   for (int i = 0; i < threads; ++i) {
-    	int thread_id = 0;
+    	int thread_id = i;
 	if(log_style  == 1)
 		thread_id = raddr.port - 8080;
 	  ths.emplace_back(rt::Thread([&conns, i, timelen, buflen, rr, thread_id] {
