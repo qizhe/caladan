@@ -22,7 +22,7 @@ namespace {
 using namespace std::chrono;
 using sec = duration<double>;
 
-constexpr uint16_t kNetperfPort = 8080;
+// constexpr uint16_t kNetperfPort = 8080;
 constexpr uint64_t kNetperfMagic = 0xF00BAD11DEADBEEF;
 constexpr size_t kMaxBuffer = 0x10000000;
 
@@ -84,9 +84,9 @@ void ServerWorker(std::unique_ptr<rt::TcpConn> c) {
   }
 }
 
-void RunServer() {
+void RunServer(int port) {
   std::unique_ptr<rt::TcpQueue> q(
-      rt::TcpQueue::Listen({0, kNetperfPort}, 4096));
+      rt::TcpQueue::Listen({0, port}, 4096));
   if (q == nullptr) panic("couldn't listen for connections");
 
   while (true) {
@@ -197,6 +197,7 @@ int main(int argc, char *argv[]) {
   std::string cmd = argv[2];
   netaddr raddr = {};
   int threads = 0, samples = 0;
+  int port = 8080;
   size_t buflen = 0;
   if (cmd.compare("tcpstream") == 0 || cmd.compare("tcprr") == 0) {
     if (argc != 7) {
@@ -206,19 +207,20 @@ int main(int argc, char *argv[]) {
     }
     int ret = StringToAddr(argv[3], &raddr.ip);
     if (ret) return -EINVAL;
-    raddr.port = kNetperfPort;
+    // raddr.port = kNetperfPort;
     threads = std::stoi(argv[4], nullptr, 0);
     samples = std::stoi(argv[5], nullptr, 0);
     buflen = std::stoul(argv[6], nullptr, 0);
+    raddr.port = std::stoi(argv[7], nullptr, 0);
   } else if (cmd.compare("server") != 0) {
     std::cerr << "invalid command: " << cmd << std::endl;
+    port = std::stoi(argv[4], nullptr, 0);
     return -EINVAL;
   }
-
   return rt::RuntimeInit(argv[1], [=]() {
     std::string cmd = argv[2];
     if (cmd.compare("server") == 0) {
-      RunServer();
+      RunServer(port);
     } else if (cmd.compare("tcpstream") == 0) {
       RunClient(raddr, threads, samples, buflen, false);
     } else if (cmd.compare("tcprr") == 0) {
