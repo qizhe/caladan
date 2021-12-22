@@ -221,7 +221,7 @@ int main(int argc, char *argv[]) {
     log_style = std::stoi(argv[8], nullptr, 0);
     std::cout << "port " << raddr.port << std::endl;
   } else if (cmd.compare("server") == 0) {
-    port = std::stoi(argv[3], nullptr, 0);
+    raddr.port = std::stoi(argv[3], nullptr, 0);
   }
   return rt::RuntimeInit(argv[1], [=]() {
     std::string cmd = argv[2];
