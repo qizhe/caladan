@@ -204,6 +204,7 @@ int main(int argc, char *argv[]) {
   size_t buflen = 0;
   /* 0: use thread id; 1: use port_id - 8080 */
   int log_style = 0;
+
   if (cmd.compare("tcpstream") == 0 || cmd.compare("tcprr") == 0) {
     if (argc != 9) {
       std::cerr << "usage: [cfg_file] " << cmd << " [ip_addr] [threads] "
@@ -218,10 +219,9 @@ int main(int argc, char *argv[]) {
     buflen = std::stoul(argv[6], nullptr, 0);
     raddr.port = std::stoi(argv[7], nullptr, 0);
     log_style = std::stoi(argv[8], nullptr, 0);
-  } else if (cmd.compare("server") != 0) {
-    std::cerr << "invalid command: " << cmd << std::endl;
-    port = std::stoi(argv[4], nullptr, 0);
-    return -EINVAL;
+    std::cout << "port " << raddr.port << std::endl;
+  } else if (cmd.compare("server") == 0) {
+    port = std::stoi(argv[3], nullptr, 0);
   }
   return rt::RuntimeInit(argv[1], [=]() {
     std::string cmd = argv[2];
